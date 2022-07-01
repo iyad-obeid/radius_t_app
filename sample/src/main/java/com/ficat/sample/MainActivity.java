@@ -1,15 +1,11 @@
 package com.ficat.sample;
 
 import android.Manifest;
-import android.bluetooth.BluetoothGatt;
-import android.bluetooth.BluetoothGattCallback;
-import android.bluetooth.BluetoothProfile;
 import android.content.Context;
 import android.content.Intent;
 import android.graphics.Rect;
 import android.location.LocationManager;
 import android.os.Build;
-import android.os.ParcelUuid;
 import android.support.v7.app.AppCompatActivity;
 import android.os.Bundle;
 import android.support.v7.widget.LinearLayoutManager;
@@ -23,6 +19,8 @@ import android.widget.Toast;
 import com.ficat.easyble.BleDevice;
 import com.ficat.easyble.BleManager;
 import com.ficat.easyble.Logger;
+import com.ficat.easyble.gatt.bean.CharacteristicInfo;
+import com.ficat.easyble.gatt.bean.ServiceInfo;
 import com.ficat.easyble.gatt.callback.BleConnectCallback;
 import com.ficat.easyble.gatt.callback.BleWriteCallback;
 import com.ficat.easyble.scan.BleScanCallback;
@@ -35,6 +33,7 @@ import com.ficat.sample.utils.ByteUtils;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 /*
  *this class is essentially the main menu of the app. "activities" are essentially pages
@@ -52,7 +51,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     //this white space denotes the OG insantiations above and mine below
-
+    private Button btnUuid;
 
     //onCreate initializes GUI elements and functionalities on the particular page (activity)
     @Override
@@ -68,6 +67,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initView() {
         //instantiate the scan button in backend = connect it to GUI element in XML
         Button btnScan = findViewById(R.id.btn_scan);
+        btnUuid = findViewById(R.id.btn_uuid);
+        btnUuid.setVisibility(View.INVISIBLE);
         //connect already instantiated recyclerView to = XML element
         rv = findViewById(R.id.rv);
 
@@ -210,7 +211,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void onStart(boolean startScanSuccess, String info) {
                 Log.e(TAG, "start scan = " + startScanSuccess + "   info: " + info);
                 if (startScanSuccess) {
-                    deviceList.clear();
+                    //deviceList.clear();
                     adapter.notifyDataSetChanged();
                 }
             }
@@ -261,7 +262,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
 
     //this handles a lot of logging and backend handling.
-    //methods are commented out because they were pulled from the unused activity. some may need functionality
+    //methods are commented out because they were pulled from the unused activity
     private BleConnectCallback bhConnectCallback = new BleConnectCallback() {
         @Override
         public void onFailure(int failCode, String info, BleDevice device) {
@@ -279,8 +280,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void onStart(boolean startConnectSuccess, String info, BleDevice device) {
 
             Logger.e("start connecting:" + startConnectSuccess + "    info=" + info);
-
-            //connection error handling - commented out because most of it comes from the unused activity
 
 //            MainActivity.this.device = device;
 //            updateConnectionStateUi(false);
@@ -305,22 +304,53 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     };
 
     public void bhSendInitPayload(BleDevice device){
+        String writeUuid = null;
+        String characteristicUuid = null;
+        //start sending data command
+        String str = "C502160117C9";
 
-        //this is what we need to write. service, characteristic uuid calls return a map and must be parsed for the missing vars
-        BleManager.getInstance().write(device, curService.uuid, curCharacteristic.uuid, ByteUtils.hexStr2Bytes(str), writeCallback);
+        //avoid crashes by insuring device is actually connected before acquring uuid
+        while(BleManager.getInstance().isConnected(device.address) != true){
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
 
-//        if(manager.isConnected(device.getDevice().getAddress())){
-//            indicatorLight = "good light";
-//        }
-//        else {
-//            indicatorLight = "problem Light";
-//
-//            Toast.makeText(MainActivity.this,
-//                    indicatorLight,
-//                    Toast.LENGTH_LONG).show();
-            //TODO: figure out last gatt stuff? send "start commands"
-        //}
+        //get the uuids
+        if(BleManager.getInstance().isConnected(device.address) == true) {
+            //devices have 'service' (parent) and 'characteristic' (child) uuids. so its map time
+            List<ServiceInfo> groupList = new ArrayList<>();
+            List<List<CharacteristicInfo>> childList = new ArrayList<>();
+            Map<ServiceInfo, List<CharacteristicInfo>> deviceInfo = BleManager.getInstance().getDeviceServices(device.address);
 
+            //put the uuids in their own lists for iteration
+            for (Map.Entry<ServiceInfo, List<CharacteristicInfo>> e : deviceInfo.entrySet()) {
+                groupList.add(e.getKey());
+                childList.add(e.getValue());
+            }
+
+            //iterate thru the parent, all the uuid's look to be the same so the one we want starts with '5'
+            int i;
+            for (i = 0; i < groupList.size(); i++) {
+                if (groupList.get(i).uuid.charAt(0) == '5') {
+                    writeUuid = groupList.get(i).uuid;
+                    break;
+                }
+            }
+
+            //for the characteristic uuid, we want writable (vs readable or notify)
+            for (int j = 0; j<childList.get(i).size(); j++) {
+                if (childList.get(i).get(j).writable) {
+                        characteristicUuid = childList.get(i).get(j).uuid;
+                }
+            }
+
+        }
+
+        //now that we have the uuids, we can send that hardcoded start command
+        BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(str), writeCallback);
     }
 
     //callback just for logging
