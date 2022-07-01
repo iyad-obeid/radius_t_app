@@ -30,10 +30,21 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 
+
+/*
+ *  this class is the page that OG app will bring you to when you click on a device.
+ * I intend to pull from this to handle the connections, because I dont see a need for this page as it stands.
+ * We could use this page to view data results natively down the road
+ */
 public class OperateActivity extends AppCompatActivity implements View.OnClickListener {
+    //this string holds the UUId etc
     public static final String KEY_DEVICE_INFO = "keyDeviceInfo";
 
+    //this instantiates the device separately to handle connections
+    //since this instantiation only exists on this page, the connection drops when user returns to main. lets change that
     private BleDevice device;
+
+    //the rest of these are gui/ui objects
     private LinearLayout llWrite, llRead;
     private EditText etWrite;
     private ProgressBar pb;
@@ -47,6 +58,7 @@ public class OperateActivity extends AppCompatActivity implements View.OnClickLi
     private ServiceInfo curService;
     private CharacteristicInfo curCharacteristic;
 
+    //same as with main activity, this method starts the main page backend and gui
     @Override
     protected void onCreate(@Nullable Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
