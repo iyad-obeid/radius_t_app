@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/EasyBle.iml" filepath="$PROJECT_DIR$/.idea/modules/EasyBle.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.main.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/EasyBle.easyble.unitTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.main.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/EasyBle.sample.unitTest.iml" />
+    </modules>
+  </component>
+</project>
