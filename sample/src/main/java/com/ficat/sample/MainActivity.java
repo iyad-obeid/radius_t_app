@@ -2,7 +2,6 @@ package com.ficat.sample;
 
 import android.Manifest;
 import android.content.Context;
-import android.content.Intent;
 import android.graphics.Rect;
 import android.location.LocationManager;
 import android.os.Build;
@@ -22,6 +21,7 @@ import com.ficat.easyble.Logger;
 import com.ficat.easyble.gatt.bean.CharacteristicInfo;
 import com.ficat.easyble.gatt.bean.ServiceInfo;
 import com.ficat.easyble.gatt.callback.BleConnectCallback;
+import com.ficat.easyble.gatt.callback.BleNotifyCallback;
 import com.ficat.easyble.gatt.callback.BleWriteCallback;
 import com.ficat.easyble.scan.BleScanCallback;
 import com.ficat.easypermissions.EasyPermissions;
@@ -31,6 +31,7 @@ import com.ficat.sample.adapter.ScanDeviceAdapter;
 import com.ficat.sample.adapter.CommonRecyclerViewAdapter;
 import com.ficat.sample.utils.ByteUtils;
 
+import java.nio.ByteBuffer;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -305,16 +306,22 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void bhSendInitPayload(BleDevice device){
         String writeUuid = null;
         String characteristicUuid = null;
+        String notifyUuid = null;
+        int i = 0;
         //start sending data command
-        String str = "C502160117C9";
+        String cmd1 = "C502160117C9";
+//        String cmd2 = "C5091743616C69336E74650AC9";
+//        String cmd3 = "C5011010C9";
+//        String cmd4 = "C505732A453F92B3C9";
 
         //avoid crashes by insuring device is actually connected before acquring uuid
-        while(BleManager.getInstance().isConnected(device.address) != true){
+        while( (BleManager.getInstance().isConnected(device.address) != true) && (i<25) ){
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
+            i++;
         }
 
         //get the uuids
@@ -331,7 +338,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
             //iterate thru the parent, all the uuid's look to be the same so the one we want starts with '5'
-            int i;
+
             for (i = 0; i < groupList.size(); i++) {
                 if (groupList.get(i).uuid.charAt(0) == '5') {
                     writeUuid = groupList.get(i).uuid;
@@ -340,16 +347,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
 
             //for the characteristic uuid, we want writable (vs readable or notify)
-            for (int j = 0; j<childList.get(i).size(); j++) {
+            for (int j = 0; j < childList.get(i).size(); j++) {
                 if (childList.get(i).get(j).writable) {
-                        characteristicUuid = childList.get(i).get(j).uuid;
+                    characteristicUuid = childList.get(i).get(j).uuid;
+                } else if (childList.get(i).get(j).notify) {
+                    notifyUuid = childList.get(i).get(j).uuid;
                 }
             }
 
-        }
 
-        //now that we have the uuids, we can send that hardcoded start command
-        BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(str), writeCallback);
+            //now that we have the uuids, we can send that hardcoded start command
+            BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
+            BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
+        }
     }
 
     //callback just for logging
@@ -367,6 +377,81 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
+    private BleNotifyCallback notifyCallback = new BleNotifyCallback() {
+        //TODO here's what I emailed you about - converting the bytestream. not sure if we discussed it, BUT THIS WILL NOT RUN IN EMULATOR. BT needs hardware
+        /*
+        I went with long after toying around with some other types and looking at stack exchange
+        - I'm not totally sure if long is the best type, so whatever you determine is best is all good
+        it would probably be better to wrap this in a seperate method for readability, but in the meantime i'm just playing with things to determine success.
 
+        README:
+        tapping scan should produce list of thermometers that are already bonded thru radiusT app. scans last 8 seconds - should be able to connect
+        to thermometers during that time, but either way nothing will break.
+        Tapping a thermometer on the list will initiate the connection process. After 5 seconds it may timeout with a "failure" toast. retry, and it will work.
+
+        once the thermometer is connected, the therm LED will turn solid blue and data is communicating
+        click 'Logcat' at the bottom left of the android studio window and you will see the bytestream and outputs of my conversion attempts
+        IMPORTANT: you can filter logcat using the search function. type "characteristic" ("chara" will do) to see only what we're after
+        one thing i realized - it's far better to get the logcat data once and figure out the maths instead of a 'try and check' methodology-
+        everytime i restart the process, it takes about 15 min for good data no matter if it was correct seconds before. this sounds obvious but
+        its a 'learn as you go' process for me between the bugs and data type conversions
+
+        this callback is...called back... everytime the thermometer sends a packet (1/min)
+         */
+        @Override
+        public void onCharacteristicChanged(byte[] data, BleDevice device) {
+            long tsLong = System.currentTimeMillis();       //system time. since last epoch? 1970? not so sure
+            String timestamp = Long.toString(tsLong);       //convert ^timestamp to string for logcat
+            long temp=0;                                    //init temp data - this is written directly from bytestream wrapper
+            byte[] timeBytes = new byte[2];                 //array to hold parsed time bytes
+            byte[] tempBytes = new byte[6];                 //""for temp - part of my problem is that I'm a little confused as to how long the packet is
+                                                            //looking at this with fresh eyes I see I manufactured bad conversion with the array size and conflicts below
+
+            //"data" variable is bytestream direct from device, same as in wireshark. mentions of "stream" reference this
+            if(data.length == 12) {                         //avoid array size collisions, only collect data after initial..initialization...has initiated
+                for(int i = 3; i < data.length; i++){       //start parse header out
+                    if(i<5){                                //parse time bytes
+                        timeBytes[(i-3)] = data[i];         //slap em in the array
+                    }
+                    if( (i>=5) && (i<=6)) {                 //""for temp - obvious issue i mentioned earlier, array size is 6, only collects 2
+                        tempBytes[(i-5)] = data[i];
+                    }
+                }
+                ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
+                temp = buff.getInt() & 0xfffffffl;              //attempted to get int from stream and AND to handle 2's compliment. I really need to revisit the subject
+            }
+            String deviceName = device.address;                 //use this to determine MAC address for multiple therms in logcat
+            String dataStr = ByteUtils.bytes2HexStr(data);      //full hex bytestream for logcat output (same as in wireshark)
+            String timeStr = ByteUtils.bytes2HexStr(timeBytes); //parsed time hex for logcat output
+            String tempStr = ByteUtils.bytes2HexStr(tempBytes); //""temp
+
+           double dTemp = temp;
+           dTemp = (dTemp / 1e6) * 1.8 + 32;                    //trying to convert to F for my own debugging sake
+            String tempFahrStr = String.valueOf(dTemp);         //convert to string for logcat
+
+            //logcat output:                  -pure hex stream- "from" -mac address-  "time:" -time hex (streamed)- "or" -system time- "temp:" -temp hex (streamed)- "fahr:" -my conversion attempt, warts and all-
+            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ deviceName + "  time:" + timeStr + " or: " + timestamp + "  temp:" + tempStr + " fahr: " + tempFahrStr );
+
+            //end to do
+
+            //updateNotificationInfo(s);          -this is deprecated since i pulled the meat of the method from operateActivity. here for reference
+        }
+
+        @Override
+        public void onNotifySuccess(String notifySuccessUuid, BleDevice device) {
+            Logger.e("notify success uuid:" + notifySuccessUuid);
+//            tvInfoNotification.setVisibility(View.VISIBLE);
+//            if (!notifySuccessUuids.contains(notifySuccessUuid)) {
+//                notifySuccessUuids.add(notifySuccessUuid);
+//            }
+//            updateNotificationInfo("");
+        }
+
+        @Override
+        public void onFailure(int failCode, String info, BleDevice device) {
+            Logger.e("notify fail:" + info);
+            //Toast.makeText(OperateActivity.this, "notify fail:" + info, Toast.LENGTH_LONG).show();
+        }
+    };
 
 }//end
