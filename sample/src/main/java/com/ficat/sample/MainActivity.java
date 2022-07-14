@@ -31,9 +31,19 @@ import com.ficat.sample.adapter.ScanDeviceAdapter;
 import com.ficat.sample.adapter.CommonRecyclerViewAdapter;
 import com.ficat.sample.utils.ByteUtils;
 
+import java.io.BufferedWriter;
+import java.io.File;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.io.OutputStreamWriter;
 import java.nio.ByteBuffer;
+import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Calendar;
+import java.util.Date;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 
 /*
@@ -50,9 +60,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private List<BleDevice> deviceList = new ArrayList<>();
     private ScanDeviceAdapter adapter;  //adapter objects modify recylerview lists
 
-
-    //this white space denotes the OG insantiations above and mine below
-    private Button btnUuid;
+    public List<String[]> outputData = new ArrayList<String[]>();
+    public boolean started;
 
     //onCreate initializes GUI elements and functionalities on the particular page (activity)
     @Override
@@ -68,13 +77,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private void initView() {
         //instantiate the scan button in backend = connect it to GUI element in XML
         Button btnScan = findViewById(R.id.btn_scan);
-        btnUuid = findViewById(R.id.btn_uuid);
+        //this white space denotes the OG insantiations above and mine below
+        Button btnUuid = findViewById(R.id.btn_uuid);
         btnUuid.setVisibility(View.INVISIBLE);
         //connect already instantiated recyclerView to = XML element
         rv = findViewById(R.id.rv);
 
         //enable the button to 'listen' for a click(tap). argument is "context" of the activity (in this case main activity)
         btnScan.setOnClickListener(this);
+
+
+
     }
 
     //methods for scanning and connecting with timeout functionality
@@ -154,38 +167,50 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     public void onClick(View v) {
         switch (v.getId()) {
             case R.id.btn_scan:
-                if (!BleManager.isBluetoothOn()) {
-                    BleManager.toggleBluetooth(true);
-                }
-                //for most devices whose version is over Android6,scanning may need GPS permission
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isGpsOn()) {
-                    Toast.makeText(this, getResources().getString(R.string.tips_turn_on_gps), Toast.LENGTH_LONG).show();
-                    return;
-                }
-                EasyPermissions
-                        .with(this)
-                        .request(Manifest.permission.ACCESS_FINE_LOCATION)
-                        .autoRetryWhenUserRefuse(true, null)
-                        .result(new RequestExecutor.ResultReceiver() {
-                            //if permissions are enabled, scan for bluetooth - this is called through the callback in the next method
-                            @Override
-                            public void onPermissionsRequestResult(boolean grantAll, List<Permission> results) {
-                                if (grantAll) {
-                                    if (!manager.isScanning()) {
-                                        startScan();
+                if(started != true) {
+                    outputData.clear();
+                    outputData.add(new String[] {"device id ","time", "temp"});
+                    if (!BleManager.isBluetoothOn()) {
+                        BleManager.toggleBluetooth(true);
+                    }
+                    //for most devices whose version is over Android6,scanning may need GPS permission
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.N && !isGpsOn()) {
+                        Toast.makeText(this, getResources().getString(R.string.tips_turn_on_gps), Toast.LENGTH_LONG).show();
+                        return;
+                    }
+                    EasyPermissions
+                            .with(this)
+                            .request(Manifest.permission.ACCESS_FINE_LOCATION)
+                            .autoRetryWhenUserRefuse(true, null)
+                            .result(new RequestExecutor.ResultReceiver() {
+                                //if permissions are enabled, scan for bluetooth - this is called through the callback in the next method
+                                @Override
+                                public void onPermissionsRequestResult(boolean grantAll, List<Permission> results) {
+                                    if (grantAll) {
+                                        if (!manager.isScanning()) {
+                                            startScan();
+                                            started = true;
+                                        }
+                                    } else {    //if user declines location permissions, this message appears.
+                                        // "toast" are the bubble notifications that appear at the bottom of the screen
+                                        Toast.makeText(MainActivity.this,
+                                                getResources().getString(R.string.tips_go_setting_to_grant_location),
+                                                Toast.LENGTH_LONG).show();
+                                        EasyPermissions.goToSettingsActivity(MainActivity.this);
                                     }
-                                } else {    //if user declines location permissions, this message appears.
-                                    // "toast" are the bubble notifications that appear at the bottom of the screen
-                                    Toast.makeText(MainActivity.this,
-                                            getResources().getString(R.string.tips_go_setting_to_grant_location),
-                                            Toast.LENGTH_LONG).show();
-                                    EasyPermissions.goToSettingsActivity(MainActivity.this);
                                 }
-                            }
-                        });
-                break;
-            default:
-                break;
+                            });
+                    break;
+                }else{
+                    writeToFile();
+                    started=false;
+                    for(BleDevice elements : deviceList){
+                        BleManager.getInstance().disconnect(elements);
+                    }
+                }
+                    default:
+                        break;
+
         }
     }
 
@@ -219,6 +244,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onFinish() {
+                if(deviceList.size() !=2){
+                    //TODO handle scan errors/issues. ask user to retry, ensure green lights are blinking, or continue
+                }
+                else
+                    for(int i = 0; i < deviceList.size(); i++){
+                        bhConnect(deviceList.get(i));
+                       if(deviceList.get(i).connected){
+                        bhSendInitPayload(deviceList.get(i));
+                        }else bhConnect(deviceList.get(i));
+                        bhSendInitPayload(deviceList.get(i));
+                    }
                 Log.e(TAG, "scan finish");
             }
         });
@@ -258,6 +294,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void bhConnect(BleDevice device) {
         BleManager.getInstance().connect(device.address, bhConnectCallback);
+
     }
 
 
@@ -271,6 +308,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     getResources().getString(failCode == BleConnectCallback.FAIL_CONNECT_TIMEOUT ?
                             R.string.tips_connect_timeout : R.string.tips_connect_fail), Toast.LENGTH_LONG).show();
 
+            for(BleDevice elements : BleManager.getInstance().getConnectedDevices()){
+                BleManager.getInstance().disconnect(elements);
+            }
+            started = false;
             //deprecated from og. likely will need to handle reset functionality
 //            reset();
 //            updateConnectionStateUi(false);
@@ -315,7 +356,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 //        String cmd4 = "C505732A453F92B3C9";
 
         //avoid crashes by insuring device is actually connected before acquring uuid
-        while( (BleManager.getInstance().isConnected(device.address) != true) && (i<25) ){
+        while( (BleManager.getInstance().isConnected(device.address) != true) && (i<20) ){
             try {
                 Thread.sleep(200);
             } catch (InterruptedException e) {
@@ -373,67 +414,55 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         @Override
         public void onFailure(int failCode, String info, BleDevice device) {
             Logger.e("write fail:" + info);
+            for(BleDevice elements : BleManager.getInstance().getConnectedDevices()){
+                BleManager.getInstance().disconnect(elements);
+            }
+            started = false;
             //tvWriteResult.setText("write fail:" + info);
         }
     };
 
     private BleNotifyCallback notifyCallback = new BleNotifyCallback() {
-        //TODO here's what I emailed you about - converting the bytestream. not sure if we discussed it, BUT THIS WILL NOT RUN IN EMULATOR. BT needs hardware
-        /*
-        I went with long after toying around with some other types and looking at stack exchange
-        - I'm not totally sure if long is the best type, so whatever you determine is best is all good
-        it would probably be better to wrap this in a seperate method for readability, but in the meantime i'm just playing with things to determine success.
 
-        README:
-        tapping scan should produce list of thermometers that are already bonded thru radiusT app. scans last 8 seconds - should be able to connect
-        to thermometers during that time, but either way nothing will break.
-        Tapping a thermometer on the list will initiate the connection process. After 5 seconds it may timeout with a "failure" toast. retry, and it will work.
-
-        once the thermometer is connected, the therm LED will turn solid blue and data is communicating
-        click 'Logcat' at the bottom left of the android studio window and you will see the bytestream and outputs of my conversion attempts
-        IMPORTANT: you can filter logcat using the search function. type "characteristic" ("chara" will do) to see only what we're after
-        one thing i realized - it's far better to get the logcat data once and figure out the maths instead of a 'try and check' methodology-
-        everytime i restart the process, it takes about 15 min for good data no matter if it was correct seconds before. this sounds obvious but
-        its a 'learn as you go' process for me between the bugs and data type conversions
-
-        this callback is...called back... everytime the thermometer sends a packet (1/min)
-         */
         @Override
         public void onCharacteristicChanged(byte[] data, BleDevice device) {
-            long tsLong = System.currentTimeMillis();       //system time. since last epoch? 1970? not so sure
-            String timestamp = Long.toString(tsLong);       //convert ^timestamp to string for logcat
-            long temp=0;                                    //init temp data - this is written directly from bytestream wrapper
-            byte[] timeBytes = new byte[2];                 //array to hold parsed time bytes
-            byte[] tempBytes = new byte[6];                 //""for temp - part of my problem is that I'm a little confused as to how long the packet is
+            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
+            String currentDateandTime = sdf.format(new Date());
+            int temp;                                    //init temp data - this is written directly from bytestream wrapper
+            double dTemp;
+            byte[] timeBytes = new byte[1];                 //array to hold parsed time bytes
+            byte[] tempBytes = new byte[2];                 //""for temp - part of my problem is that I'm a little confused as to how long the packet is
                                                             //looking at this with fresh eyes I see I manufactured bad conversion with the array size and conflicts below
 
             //"data" variable is bytestream direct from device, same as in wireshark. mentions of "stream" reference this
-            if(data.length == 12) {                         //avoid array size collisions, only collect data after initial..initialization...has initiated
+           // if(data.length == 12) {                         //avoid array size collisions, only collect data after initial..initialization...has initiated
                 for(int i = 3; i < data.length; i++){       //start parse header out
-                    if(i<5){                                //parse time bytes
-                        timeBytes[(i-3)] = data[i];         //slap em in the array
+                    if(i==3){                                //parse time bytes
+                        timeBytes[0] = data[i];         //slap em in the array
                     }
-                    if( (i>=5) && (i<=6)) {                 //""for temp - obvious issue i mentioned earlier, array size is 6, only collects 2
-                        tempBytes[(i-5)] = data[i];
+                    if( (i>3) && (i<6)) {                 //""for temp - obvious issue i mentioned earlier, array size is 6, only collects 2
+                        tempBytes[(i-4)] = data[i];
                     }
                 }
                 ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
-                temp = buff.getInt() & 0xfffffffl;              //attempted to get int from stream and AND to handle 2's compliment. I really need to revisit the subject
-            }
-            String deviceName = device.address;                 //use this to determine MAC address for multiple therms in logcat
+                temp = buff.getShort();
+                temp = temp & 0xffff;
+                dTemp = temp;
+                dTemp /= 1000;
+                //attempted to get int from stream and AND to handle 2's compliment. I really need to revisit the subject
+            //}
             String dataStr = ByteUtils.bytes2HexStr(data);      //full hex bytestream for logcat output (same as in wireshark)
             String timeStr = ByteUtils.bytes2HexStr(timeBytes); //parsed time hex for logcat output
             String tempStr = ByteUtils.bytes2HexStr(tempBytes); //""temp
 
-           double dTemp = temp;
-           dTemp = (dTemp / 1e6) * 1.8 + 32;                    //trying to convert to F for my own debugging sake
+          // dTemp = (dTemp / 1e6) * 1.8 + 32;                    //trying to convert to F for my own debugging sake
             String tempFahrStr = String.valueOf(dTemp);         //convert to string for logcat
 
             //logcat output:                  -pure hex stream- "from" -mac address-  "time:" -time hex (streamed)- "or" -system time- "temp:" -temp hex (streamed)- "fahr:" -my conversion attempt, warts and all-
-            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ deviceName + "  time:" + timeStr + " or: " + timestamp + "  temp:" + tempStr + " fahr: " + tempFahrStr );
+            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ device.address + "  time:" + timeStr + " or: " + currentDateandTime + "  temp:" + tempStr + " C: " + tempFahrStr );
 
             //end to do
-
+            outputData.add( new String[] {device.address, currentDateandTime, tempFahrStr});
             //updateNotificationInfo(s);          -this is deprecated since i pulled the meat of the method from operateActivity. here for reference
         }
 
@@ -451,7 +480,43 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void onFailure(int failCode, String info, BleDevice device) {
             Logger.e("notify fail:" + info);
             //Toast.makeText(OperateActivity.this, "notify fail:" + info, Toast.LENGTH_LONG).show();
+            for(BleDevice elements : BleManager.getInstance().getConnectedDevices()){
+                BleManager.getInstance().disconnect(elements);
+
+            }
+            started = false;
         }
     };
 
+    private void writeToFile() {
+        try {
+
+            File path = getExternalFilesDir(null);
+            Date date = new Date() ;
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd") ;
+            File file = new File(path,dateFormat.format(date) + ".csv") ;
+            BufferedWriter out = new BufferedWriter(new FileWriter(file));
+            out.write("Writing to file");
+            out.close();
+
+            // if file doesnt exists, then create it
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            FileWriter fw = new FileWriter(file.getAbsoluteFile());
+            BufferedWriter bw = new BufferedWriter(fw);
+            StringBuilder sb = new StringBuilder();
+
+            for(int i = 0; i < outputData.size(); i++) {
+                sb.append(Arrays.toString(outputData.get(i)));
+                sb.append("\n");
+            }
+            bw.write(sb.toString());
+            bw.close();
+
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
 }//end
