@@ -14,7 +14,7 @@ import android.util.SparseArray;
 import android.view.View;
 import android.widget.Button;
 import android.widget.Toast;
-
+import com.ficat.sample.NetworkOperation;
 import com.ficat.easyble.BleDevice;
 import com.ficat.easyble.BleManager;
 import com.ficat.easyble.Logger;
@@ -31,11 +31,21 @@ import com.ficat.sample.adapter.ScanDeviceAdapter;
 import com.ficat.sample.adapter.CommonRecyclerViewAdapter;
 import com.ficat.sample.utils.ByteUtils;
 
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
 import java.io.BufferedWriter;
 import java.io.File;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.OutputStream;
 import java.io.OutputStreamWriter;
+import java.net.HttpURLConnection;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.nio.ByteBuffer;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
@@ -45,6 +55,8 @@ import java.util.Date;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+
+import javax.net.ssl.HttpsURLConnection;
 
 /*
  *this class is essentially the main menu of the app. "activities" are essentially pages
@@ -71,6 +83,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initView(); //initializes scan button, recyclerView (connects graphic elements to coded methods)
         initBleManager();   //inits logger, scanner, etc
         showDevicesByRv();  //Rv is short for recyclerView. now that layout and elemends are intialized, this uses the adapter to produce the gui elements
+
     }
 
     //connects GUI elements to their functionalities
@@ -244,10 +257,10 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onFinish() {
-                if(deviceList.size() !=2){
+               // if(deviceList.size() !=2){
                     //TODO handle scan errors/issues. ask user to retry, ensure green lights are blinking, or continue
-                }
-                else
+                //}
+                //else
                     for(int i = 0; i < deviceList.size(); i++){
                         bhConnect(deviceList.get(i));
                        if(deviceList.get(i).connected){
@@ -256,6 +269,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         bhSendInitPayload(deviceList.get(i));
                     }
                 Log.e(TAG, "scan finish");
+                    //serverConnect();
+
             }
         });
     }
@@ -425,9 +440,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private BleNotifyCallback notifyCallback = new BleNotifyCallback() {
 
         @Override
-        public void onCharacteristicChanged(byte[] data, BleDevice device) {
-            SimpleDateFormat sdf = new SimpleDateFormat("HH:mm:ss", Locale.getDefault());
-            String currentDateandTime = sdf.format(new Date());
+        public void onCharacteristicChanged(byte[] data, BleDevice device) throws JSONException, IOException {
+            SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
+            String currentDateandTime = sdf.format(new Date()) + "Z";
             int temp;                                    //init temp data - this is written directly from bytestream wrapper
             double dTemp;
             byte[] timeBytes = new byte[1];                 //array to hold parsed time bytes
@@ -447,8 +462,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
                 temp = buff.getShort();
                 temp = temp & 0xffff;
-                dTemp = temp;
-                dTemp /= 1000;
+                dTemp = Math.round(temp / 100);
+                dTemp /=10;
                 //attempted to get int from stream and AND to handle 2's compliment. I really need to revisit the subject
             //}
             String dataStr = ByteUtils.bytes2HexStr(data);      //full hex bytestream for logcat output (same as in wireshark)
@@ -456,14 +471,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             String tempStr = ByteUtils.bytes2HexStr(tempBytes); //""temp
 
           // dTemp = (dTemp / 1e6) * 1.8 + 32;                    //trying to convert to F for my own debugging sake
-            String tempFahrStr = String.valueOf(dTemp);         //convert to string for logcat
+            String tempCelsStr = String.valueOf(dTemp);         //convert to string for logcat
 
             //logcat output:                  -pure hex stream- "from" -mac address-  "time:" -time hex (streamed)- "or" -system time- "temp:" -temp hex (streamed)- "fahr:" -my conversion attempt, warts and all-
-            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ device.address + "  time:" + timeStr + " or: " + currentDateandTime + "  temp:" + tempStr + " C: " + tempFahrStr );
+            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ device.address + "  time:" + timeStr + " or: " + currentDateandTime + "  temp:" + tempStr + " C: " + tempCelsStr );
 
             //end to do
-            outputData.add( new String[] {device.address, currentDateandTime, tempFahrStr});
+            outputData.add( new String[] {device.address, currentDateandTime, tempCelsStr});
+            JSONObject jData = jMake(currentDateandTime,dTemp);
+            //Logger.e(jData.toString());
+            new NetworkOperation().execute(jData.toString());
+            //uploadData(jData);
             //updateNotificationInfo(s);          -this is deprecated since i pulled the meat of the method from operateActivity. here for reference
+            //TODO look for disconnected devices. check thru list for devices, if not connected, attempt reconnect
         }
 
         @Override
@@ -519,4 +539,55 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             e.printStackTrace();
         }
     }
+
+    //-----------------------------------http stuff
+//    private void uploadData(String data) throws IOException {
+//        String https_url = "https://register.bpchildresearch.org/wstg/tempsensor/temp ";
+//        String token = "HFKjzEZjHnea";
+//        byte[] input = data.getBytes("utf-8");
+//        URL url;
+//        try {
+//
+//
+//
+//
+//            url = new URL(https_url);
+//            HttpURLConnection con = (HttpURLConnection)url.openConnection();
+//            //
+//            con.setRequestProperty("Authorization", "Bearer "+ token);
+//            con.setRequestMethod("POST");
+//            con.setRequestProperty("Content-Type", "application/json");
+//            con.setRequestProperty("Accept", "application/json");
+//            con.setDoOutput(true);
+//
+//            con.connect();
+//           //OutputStream os = con.getOutputStream());
+//
+//            //os.write(input, 0, input.length);
+//
+//
+//
+//            Logger.e("attempted jawn");
+//        } catch (MalformedURLException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+//
+//    }
+
+    private JSONObject jMake(String date, double time){
+        JSONObject obj = new JSONObject();
+        try {
+            obj.put("date", date);
+        obj.put("time", time);
+
+
+        } catch (JSONException e) {
+            e.printStackTrace();
+        }
+
+        return obj;
+    }
+
 }//end

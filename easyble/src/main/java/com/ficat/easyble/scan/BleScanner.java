@@ -19,6 +19,7 @@ import com.ficat.easyble.BleDevice;
 import com.ficat.easyble.BleReceiver;
 import com.ficat.easyble.Logger;
 
+import java.io.IOException;
 import java.lang.reflect.Constructor;
 import java.util.ArrayList;
 import java.util.List;
@@ -127,7 +128,11 @@ public class BleScanner implements BleScan<BleScanCallback>, BleReceiver.Bluetoo
             @Override
             public void run() {
                 if (mBleScanCallback != null) {
-                    mBleScanCallback.onFinish();
+                    try {
+                        mBleScanCallback.onFinish();
+                    } catch (IOException e) {
+                        e.printStackTrace();
+                    }
                     mBleScanCallback = null;
                 }
             }

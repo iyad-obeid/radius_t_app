@@ -28,6 +28,9 @@ import com.ficat.easyble.gatt.callback.BleWriteByBatchCallback;
 import com.ficat.easyble.gatt.callback.BleWriteCallback;
 import com.ficat.easyble.utils.SplitBleDataUtils;
 
+import org.json.JSONException;
+
+import java.io.IOException;
 import java.lang.reflect.Method;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -235,7 +238,11 @@ public class BleGattImpl implements BleGatt {
                 @Override
                 public void run() {
                     if (callback != null) {
-                        callback.onCharacteristicChanged(data, device);
+                        try {
+                            callback.onCharacteristicChanged(data, device);
+                        } catch (IOException | JSONException e) {
+                            e.printStackTrace();
+                        }
                     }
                 }
             });
