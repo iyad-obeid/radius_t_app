@@ -13,6 +13,7 @@ import android.util.Log;
 import android.util.SparseArray;
 import android.view.View;
 import android.widget.Button;
+import android.widget.TextView;
 import android.widget.Toast;
 import com.ficat.sample.NetworkOperation;
 import com.ficat.easyble.BleDevice;
@@ -74,6 +75,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     public List<String[]> outputData = new ArrayList<String[]>();
     public boolean started;
+    public boolean intendedDisconnect;
 
     //onCreate initializes GUI elements and functionalities on the particular page (activity)
     @Override
@@ -83,7 +85,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         initView(); //initializes scan button, recyclerView (connects graphic elements to coded methods)
         initBleManager();   //inits logger, scanner, etc
         showDevicesByRv();  //Rv is short for recyclerView. now that layout and elemends are intialized, this uses the adapter to produce the gui elements
-
+        deviceList.clear();
     }
 
     //connects GUI elements to their functionalities
@@ -91,16 +93,17 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         //instantiate the scan button in backend = connect it to GUI element in XML
         Button btnScan = findViewById(R.id.btn_scan);
         //this white space denotes the OG insantiations above and mine below
-        Button btnUuid = findViewById(R.id.btn_uuid);
-        btnUuid.setVisibility(View.INVISIBLE);
+        Button btnRetry = findViewById(R.id.btn_retry);
+        btnRetry.setVisibility(View.INVISIBLE);
+        Button btnContinue = findViewById(R.id.btn_continue);
+        btnContinue.setVisibility(View.INVISIBLE);
+        TextView tvFailure = findViewById(R.id.tv_fail);
+        tvFailure.setVisibility(View.INVISIBLE);
         //connect already instantiated recyclerView to = XML element
         rv = findViewById(R.id.rv);
 
         //enable the button to 'listen' for a click(tap). argument is "context" of the activity (in this case main activity)
         btnScan.setOnClickListener(this);
-
-
-
     }
 
     //methods for scanning and connecting with timeout functionality
@@ -150,26 +153,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void onItemClick(View itemView, int position) {
                 manager.stopScan();
                 BleDevice device = deviceList.get(position);
-
-                /*VVVVV
-                   *just a visual aid to find the custom function call
-                   *
-                   *
-                   *
-                 */
                 bhConnect(device);
-                bhSendInitPayload(device);
-                /*^^^^^^
-                 *just a visual aid to find the custom function call
-                 *
-                 *
-                 *
-                 */
 
-                //intent changes the activity (basically the page). this is the original code for posterity
-//                Intent intent = new Intent(MainActivity.this, OperateActivity.class);
-//                intent.putExtra(OperateActivity.KEY_DEVICE_INFO, device);
-//                startActivity(intent);
             }
         });
         rv.setAdapter(adapter);
@@ -178,9 +163,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     //checks permissions, ensures user allows location services for BT
     @Override
     public void onClick(View v) {
+        Button btnScan = findViewById(R.id.btn_scan);
         switch (v.getId()) {
             case R.id.btn_scan:
                 if(started != true) {
+                    deviceList.clear();
+                    intendedDisconnect = true;
+                    btnScan.setText("connecting...");
+                    findViewById(R.id.btn_scan).setClickable(false);
                     outputData.clear();
                     outputData.add(new String[] {"device id ","time", "temp"});
                     if (!BleManager.isBluetoothOn()) {
@@ -217,10 +207,46 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }else{
                     writeToFile();
                     started=false;
+                    intendedDisconnect = true;
                     for(BleDevice elements : deviceList){
                         BleManager.getInstance().disconnect(elements);
                     }
+                    deviceList.clear();
+                    btnScan.setText("Start Session");
+
+                    break;
                 }
+            case R.id.btn_retry:
+                startScan();
+                findViewById(R.id.btn_retry).setVisibility(View.INVISIBLE);
+                findViewById(R.id.btn_continue).setVisibility(View.INVISIBLE);
+                findViewById(R.id.btn_scan).setClickable(false);
+                findViewById(R.id.btn_retry).setClickable(false);
+                findViewById(R.id.btn_continue).setClickable(false);
+                findViewById(R.id.tv_fail).setVisibility(View.INVISIBLE);
+                TextView tvFail = findViewById(R.id.tv_fail);
+                tvFail.setText("Connection failed!");
+                break;
+            case R.id.btn_continue:
+                findViewById(R.id.btn_retry).setVisibility(View.INVISIBLE);
+                findViewById(R.id.btn_continue).setVisibility(View.INVISIBLE);
+                findViewById(R.id.btn_retry).setClickable(false);
+                findViewById(R.id.btn_continue).setClickable(false);
+                findViewById(R.id.tv_fail).setVisibility(View.INVISIBLE);
+                TextView tvfail = findViewById(R.id.tv_fail);
+                tvfail.setText("Connection failed!");
+                btnScan.setText("End Session");
+                findViewById(R.id.btn_scan).setClickable(true);
+                started = true;
+
+                for(BleDevice d : deviceList){
+                    if(d.connected) {
+                        Logger.e("can check");
+                        bhSendInitPayload(d);
+                    }
+                }
+
+                break;
                     default:
                         break;
 
@@ -228,7 +254,11 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
     //the callback checks for permissions and contains the actual scanning methods
-    private void startScan() {
+    public void startScan() {
+        findViewById(R.id.btn_retry).setVisibility(View.INVISIBLE);
+        findViewById(R.id.btn_continue).setVisibility(View.INVISIBLE);
+        findViewById(R.id.btn_scan).setClickable(false);
+        findViewById(R.id.btn_retry).setClickable(false);
         manager.startScan(new BleScanCallback() {
             //if the devices is already added, ignore it
             @Override
@@ -240,6 +270,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 //otherwise add it to the array
                 if (device.getDevice().getBondState() == 12) {           //IMPORTANT! this is what i modified to ensure only bonded devices are handled further
+                    BleManager.getInstance().connect(device, bhConnectCallback);
                     deviceList.add(device); //add device to array
                     adapter.notifyDataSetChanged(); //updates adapter/recycler which produces GUI updates
                 }
@@ -250,26 +281,33 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             public void onStart(boolean startScanSuccess, String info) {
                 Log.e(TAG, "start scan = " + startScanSuccess + "   info: " + info);
                 if (startScanSuccess) {
-                    //deviceList.clear();
                     adapter.notifyDataSetChanged();
                 }
             }
 
             @Override
             public void onFinish() {
-               // if(deviceList.size() !=2){
-                    //TODO handle scan errors/issues. ask user to retry, ensure green lights are blinking, or continue
-                //}
-                //else
-                    for(int i = 0; i < deviceList.size(); i++){
-                        bhConnect(deviceList.get(i));
-                       if(deviceList.get(i).connected){
-                        bhSendInitPayload(deviceList.get(i));
-                        }else bhConnect(deviceList.get(i));
-                        bhSendInitPayload(deviceList.get(i));
+                if(deviceList.size() !=2){
+                    TextView tvFail = findViewById(R.id.tv_fail);
+                    Button btnRetry = findViewById(R.id.btn_retry);
+                    Button btnContinue = findViewById(R.id.btn_continue);
+
+                    tvFail.setVisibility(View.VISIBLE);
+                    btnContinue.setVisibility(View.VISIBLE);
+                    btnRetry.setVisibility(View.VISIBLE);
+
+                    btnContinue.setOnClickListener(MainActivity.this);
+                    btnRetry.setOnClickListener(MainActivity.this);
+                    if(deviceList.size() > 0){
+                        tvFail.setText("Only one device found:");
                     }
+                }
+                else {
+                    for (int i = 0; i < deviceList.size(); i++) {
+                            bhSendInitPayload(deviceList.get(i));
+                    }
+                }
                 Log.e(TAG, "scan finish");
-                    //serverConnect();
 
             }
         });
@@ -293,22 +331,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     }
 
 
-    /*
-     *this white space separates the OG code above from my code below
-     *
-     *
-     *
-     *
-     *
-     *
-     *
-     *
-     *
-     *
-     */
+
 
     private void bhConnect(BleDevice device) {
-        BleManager.getInstance().connect(device.address, bhConnectCallback);
+        synchronized (this) {
+            BleManager.getInstance().connect(device.address, bhConnectCallback);
+        }
 
     }
 
@@ -323,10 +351,13 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     getResources().getString(failCode == BleConnectCallback.FAIL_CONNECT_TIMEOUT ?
                             R.string.tips_connect_timeout : R.string.tips_connect_fail), Toast.LENGTH_LONG).show();
 
-            for(BleDevice elements : BleManager.getInstance().getConnectedDevices()){
+            for(BleDevice elements : deviceList){
                 BleManager.getInstance().disconnect(elements);
-            }
-            started = false;
+                }
+//            started = false;
+//            deviceList.clear();
+//            manager.stopScan();
+//            startScan();
             //deprecated from og. likely will need to handle reset functionality
 //            reset();
 //            updateConnectionStateUi(false);
@@ -346,6 +377,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         public void onConnected(BleDevice device) {
+           // if(deviceList.size() == 2){manager.stopScan();}
 //            updateConnectionStateUi(true);
 //            addDeviceInfoDataAndUpdate();
         }
@@ -353,6 +385,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
         @Override
         public void onDisconnected(String info, int status, BleDevice device) {
+            if (intendedDisconnect == false) Reconnect();
             Logger.e("disconnected!");
         }
 
@@ -360,70 +393,85 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     };
 
     public void bhSendInitPayload(BleDevice device){
-        String writeUuid = null;
-        String characteristicUuid = null;
-        String notifyUuid = null;
-        int i = 0;
-        //start sending data command
-        String cmd1 = "C502160117C9";
+
+    Logger.e("initted");
+    String writeUuid = null;
+    String characteristicUuid = null;
+    String notifyUuid = null;
+    int i = 0;
+    //start sending data command
+    String cmd1 = "C502160117C9";
 //        String cmd2 = "C5091743616C69336E74650AC9";
 //        String cmd3 = "C5011010C9";
 //        String cmd4 = "C505732A453F92B3C9";
 
-        //avoid crashes by insuring device is actually connected before acquring uuid
-        while( (BleManager.getInstance().isConnected(device.address) != true) && (i<20) ){
-            try {
-                Thread.sleep(200);
-            } catch (InterruptedException e) {
-                e.printStackTrace();
-            }
-            i++;
+    //avoid crashes by insuring device is actually connected before acquring uuid
+    while ((BleManager.getInstance().isConnected(device.address) != true) && (i < 20)) {
+        Logger.e("whiling");
+        try {
+            Thread.sleep(200);
+        } catch (InterruptedException e) {
+            e.printStackTrace();
         }
-
-        //get the uuids
-        if(BleManager.getInstance().isConnected(device.address) == true) {
-            //devices have 'service' (parent) and 'characteristic' (child) uuids. so its map time
-            List<ServiceInfo> groupList = new ArrayList<>();
-            List<List<CharacteristicInfo>> childList = new ArrayList<>();
-            Map<ServiceInfo, List<CharacteristicInfo>> deviceInfo = BleManager.getInstance().getDeviceServices(device.address);
-
-            //put the uuids in their own lists for iteration
-            for (Map.Entry<ServiceInfo, List<CharacteristicInfo>> e : deviceInfo.entrySet()) {
-                groupList.add(e.getKey());
-                childList.add(e.getValue());
-            }
-
-            //iterate thru the parent, all the uuid's look to be the same so the one we want starts with '5'
-
-            for (i = 0; i < groupList.size(); i++) {
-                if (groupList.get(i).uuid.charAt(0) == '5') {
-                    writeUuid = groupList.get(i).uuid;
-                    break;
-                }
-            }
-
-            //for the characteristic uuid, we want writable (vs readable or notify)
-            for (int j = 0; j < childList.get(i).size(); j++) {
-                if (childList.get(i).get(j).writable) {
-                    characteristicUuid = childList.get(i).get(j).uuid;
-                } else if (childList.get(i).get(j).notify) {
-                    notifyUuid = childList.get(i).get(j).uuid;
-                }
-            }
-
-
-            //now that we have the uuids, we can send that hardcoded start command
-            BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
-            BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
-        }
+        i++;
     }
+
+    //get the uuids
+    if (BleManager.getInstance().isConnected(device.address) == true) {
+        Logger.e("connection checked");
+        //devices have 'service' (parent) and 'characteristic' (child) uuids. so its map time
+        List<ServiceInfo> groupList = new ArrayList<>();
+        List<List<CharacteristicInfo>> childList = new ArrayList<>();
+        Map<ServiceInfo, List<CharacteristicInfo>> deviceInfo = BleManager.getInstance().getDeviceServices(device.address);
+        Logger.e("lists made");
+        //put the uuids in their own lists for iteration
+        for (Map.Entry<ServiceInfo, List<CharacteristicInfo>> e : deviceInfo.entrySet()) {
+            groupList.add(e.getKey());
+            childList.add(e.getValue());
+            Logger.e("entries set");
+        }
+
+
+        //iterate thru the parent, all the uuid's look to be the same so the one we want starts with '5'
+
+        for (i = 0; i < groupList.size(); i++) {
+            Logger.e("wtf");
+            if (groupList.get(i).uuid.charAt(0) == '5') {
+                writeUuid = groupList.get(i).uuid;
+                Logger.e("uuid acquired");
+                break;
+            }
+        }
+
+        //for the characteristic uuid, we want writable (vs readable or notify)
+        for (int j = 0; j < childList.get(i).size(); j++) {
+            if (childList.get(i).get(j).writable) {
+                characteristicUuid = childList.get(i).get(j).uuid;
+            } else if (childList.get(i).get(j).notify) {
+                notifyUuid = childList.get(i).get(j).uuid;
+            }
+        }
+        Logger.e("uuid placed");
+
+        //now that we have the uuids, we can send that hardcoded start command
+        BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
+        BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
+    }
+    }
+
+
 
     //callback just for logging
     private BleWriteCallback writeCallback = new BleWriteCallback() {
         @Override
         public void onWriteSuccess(byte[] data, BleDevice device) {
+            TextView topbuttn = findViewById(R.id.btn_scan);
+            topbuttn.setText("End Session");
+            topbuttn.setClickable(true);
             Logger.e("write success:" + ByteUtils.bytes2HexStr(data));
            // tvWriteResult.setText(ByteUtils.bytes2HexStr(data));
+
+            intendedDisconnect = false;
         }
 
         @Override
@@ -432,7 +480,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             for(BleDevice elements : BleManager.getInstance().getConnectedDevices()){
                 BleManager.getInstance().disconnect(elements);
             }
-            started = false;
             //tvWriteResult.setText("write fail:" + info);
         }
     };
@@ -504,7 +551,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 BleManager.getInstance().disconnect(elements);
 
             }
-            started = false;
+
         }
     };
 
@@ -540,54 +587,31 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-    //-----------------------------------http stuff
-//    private void uploadData(String data) throws IOException {
-//        String https_url = "https://register.bpchildresearch.org/wstg/tempsensor/temp ";
-//        String token = "HFKjzEZjHnea";
-//        byte[] input = data.getBytes("utf-8");
-//        URL url;
-//        try {
-//
-//
-//
-//
-//            url = new URL(https_url);
-//            HttpURLConnection con = (HttpURLConnection)url.openConnection();
-//            //
-//            con.setRequestProperty("Authorization", "Bearer "+ token);
-//            con.setRequestMethod("POST");
-//            con.setRequestProperty("Content-Type", "application/json");
-//            con.setRequestProperty("Accept", "application/json");
-//            con.setDoOutput(true);
-//
-//            con.connect();
-//           //OutputStream os = con.getOutputStream());
-//
-//            //os.write(input, 0, input.length);
-//
-//
-//
-//            Logger.e("attempted jawn");
-//        } catch (MalformedURLException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
-//
-//    }
 
-    private JSONObject jMake(String date, double time){
+    private JSONObject jMake(String date, double temp){
         JSONObject obj = new JSONObject();
         try {
             obj.put("date", date);
-        obj.put("time", time);
-
+        obj.put("temp", temp);
 
         } catch (JSONException e) {
             e.printStackTrace();
         }
 
         return obj;
+    }
+
+    private void Reconnect(){
+
+        if(intendedDisconnect == false) {
+            for (BleDevice elements : deviceList) {
+                if (BleManager.getInstance().isConnected(elements.address) != true) {
+                    BleManager.getInstance().connect(elements.getDevice().getAddress(), bhConnectCallback);
+                    bhSendInitPayload(elements);
+                    Logger.e("reconnecting attmpt");
+                }
+            }
+        }
     }
 
 }//end

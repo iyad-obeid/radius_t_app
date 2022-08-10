@@ -16,7 +16,7 @@
         android:layout_marginRight="12dp"
         android:background="@drawable/selector_btn_common"
         android:gravity="center"
-        android:text="@string/start_scan" />
+        android:text=" Start Session" />
 
     <android.support.v7.widget.RecyclerView
         android:layout_marginTop="15dp"
@@ -25,9 +25,23 @@
         android:layout_height="wrap_content"
         android:background="#f3f9f9" />
 
-    <Button
-        android:id="@+id/btn_uuid"
+    <EditText
+        android:id="@+id/tv_fail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Button" />
+        android:ems="10"
+        android:inputType="textPersonName"
+        android:text="Connection Failed!" />
+
+    <Button
+        android:id="@+id/btn_retry"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Retry Connection" />
+
+    <Button
+        android:id="@+id/btn_continue"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:text="Continue" />
 </LinearLayout>
