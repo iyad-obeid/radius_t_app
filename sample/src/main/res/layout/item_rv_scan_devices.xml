@@ -27,9 +27,14 @@
 
     <TextView
         android:id="@+id/tv_connection_state"
-        android:layout_width="wrap_content"
+        android:layout_width="100dp"
         android:layout_height="wrap_content"
-        android:layout_alignParentRight="true"
-        android:layout_centerVertical="true"
-        android:textSize="12sp" />
+        android:layout_alignEnd="@+id/tv_name"
+        android:layout_alignParentTop="true"
+        android:layout_alignParentEnd="true"
+        android:layout_alignParentRight="false"
+        android:layout_marginTop="17dp"
+        android:text="disconnected"
+        android:textSize="12sp"
+        android:visibility="visible" />
 </RelativeLayout>

@@ -11,27 +11,30 @@
     <Button
         android:id="@+id/btn_scan"
         style="@style/ButtonStyle"
+        android:layout_height="48dp"
         android:layout_marginLeft="12dp"
         android:layout_marginTop="24dp"
         android:layout_marginRight="12dp"
-        android:background="@drawable/selector_btn_common"
+        android:background="@drawable/ic_launcher_background"
         android:gravity="center"
-        android:text=" Start Session" />
+        android:text="Tap to Start Session" />
 
     <android.support.v7.widget.RecyclerView
-        android:layout_marginTop="15dp"
         android:id="@+id/rv"
-        android:layout_width="match_parent"
+        android:layout_width="wrap_content"
         android:layout_height="wrap_content"
+        android:layout_marginTop="15dp"
         android:background="#f3f9f9" />
 
-    <EditText
+    <TextView
         android:id="@+id/tv_fail"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:ems="10"
-        android:inputType="textPersonName"
-        android:text="Connection Failed!" />
+        android:text="connection failed"
+        android:textColor="#0E0D0D"
+        android:textColorHighlight="#3F51B5"
+        android:textSize="20sp"
+        android:textStyle="bold" />
 
     <Button
         android:id="@+id/btn_retry"
@@ -44,4 +47,10 @@
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="Continue" />
+
+    <android.support.v7.widget.RecyclerView
+        android:id="@+id/rvdata"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:scrollbars="vertical" />
 </LinearLayout>

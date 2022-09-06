@@ -97,7 +97,7 @@ public class OperateActivity extends AppCompatActivity implements View.OnClickLi
         TextView tvWrite = findViewById(R.id.tv_write);
         llWrite = findViewById(R.id.ll_write);
         llRead = findViewById(R.id.ll_read);
-        tvConnectionState = findViewById(R.id.tv_connection_state);
+        //tvConnectionState = findViewById(R.id.tv_connection_state);
         tvReadResult = findViewById(R.id.tv_read_result);
         etWrite = findViewById(R.id.et_write);
         tvWriteResult = findViewById(R.id.tv_write_result);
@@ -167,8 +167,8 @@ public class OperateActivity extends AppCompatActivity implements View.OnClickLi
             state = getResources().getString(R.string.connection_state_disconnected);
         }
         pb.setVisibility(device.connecting ? View.VISIBLE : View.INVISIBLE);
-        tvConnectionState.setText(state);
-        tvConnectionState.setTextColor(getResources().getColor(device.connected ? R.color.bright_blue : R.color.bright_red));
+        //tvConnectionState.setText(state);
+        //tvConnectionState.setTextColor(getResources().getColor(device.connected ? R.color.bright_blue : R.color.bright_red));
     }
 
     private void updateNotificationInfo(String notification) {

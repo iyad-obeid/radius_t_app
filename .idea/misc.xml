@@ -3,10 +3,12 @@
   <component name="DesignSurface">
     <option name="filePathToZoomLevelMap">
       <map>
-        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/activity_main.xml" value="0.3509963768115942" />
-        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/activity_operate.xml" value="0.2109375" />
-        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_elv_device_info_child.xml" value="0.2109375" />
-        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_rv_scan_devices.xml" value="0.2109375" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/activity_main.xml" value="0.33" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/activity_operate.xml" value="0.25" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_elv_device_info_child.xml" value="0.33" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_elv_device_info_group.xml" value="0.2109375" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_rv_data.xml" value="0.5" />
+        <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_rv_scan_devices.xml" value="0.5" />
       </map>
     </option>
   </component>

@@ -1,11 +1,19 @@
 package com.ficat.sample;
 
 import android.annotation.SuppressLint;
+import android.content.Context;
 import android.os.AsyncTask;
+import android.util.Log;
 
 import com.ficat.easyble.Logger;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
+import java.io.InputStream;
+import java.io.InputStreamReader;
 import java.io.OutputStream;
 import java.io.UnsupportedEncodingException;
 import java.net.HttpURLConnection;
@@ -16,35 +24,31 @@ import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
 
 public class NetworkOperation extends AsyncTask<String, Void, String> {
+
+    String token;
+
     @SuppressLint("NewApi")
     @Override
     protected String doInBackground(String... params) {
         String https_url = "https://register.bpchildresearch.org/wstg/tempsensor/temp";
         //HFKjzEZjHnea
-
-        String token = "NcdaTXkbTDTh";
-        String data = Arrays.toString(params);
+        //String token = "NcdaTXkbTDTh";
+        String token = params[1];
+        String data = "["+params[0]+"]";
+        Logger.e(data);
         byte[] input = new byte[1];
         input = data.getBytes(StandardCharsets.UTF_8);
         URL url = null;
 
         try {
             url = new URL(https_url);
-        } catch (MalformedURLException e) {
-            e.printStackTrace();
-        }
+
         HttpURLConnection con = null;
-        try {
+
             con = (HttpURLConnection)url.openConnection();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        //
-        try {
+
             con.setRequestMethod("POST");
-        } catch (ProtocolException e) {
-            e.printStackTrace();
-        }
+
         con.setDoOutput(true);
             con.setRequestProperty("Accept", "application/json");
             con.setRequestProperty("Authorization", "Bearer "+ token);
@@ -52,31 +56,18 @@ public class NetworkOperation extends AsyncTask<String, Void, String> {
             con.setRequestProperty("Content-Type", "application/json");
 
         OutputStream os = null;
-        try {
             con.connect();
             os = con.getOutputStream();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-
-        try {
             os.write(input);
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            os.flush();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        try {
-            Logger.e(con.getResponseCode()+" "+con.getResponseMessage());
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
-        con.disconnect();
-        Logger.e(data);
 
+            os.flush();
+
+            Logger.e(con.getResponseCode()+" "+con.getResponseMessage());
+
+        con.disconnect();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
         return https_url;
     }
@@ -85,5 +76,8 @@ public class NetworkOperation extends AsyncTask<String, Void, String> {
     protected void onPostExecute(String result) {
 
     }
+
+
+
 
 }

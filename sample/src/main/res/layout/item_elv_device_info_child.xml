@@ -30,4 +30,5 @@
         android:textColor="@android:color/holo_green_light"
         android:textSize="14sp"
         tools:text="Read" />
+
 </LinearLayout>
