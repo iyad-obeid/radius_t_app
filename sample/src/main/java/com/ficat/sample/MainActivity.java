@@ -54,21 +54,20 @@ import java.util.Map;
 /*
  *this class is essentially the main menu of the app. "activities" are essentially pages
  *
- * any method, class, etc. that I wrote myself will begin with bh to denote its custom nature
+ *
  */
 
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
 
     private final static String TAG = "EasyBle";
-    private RecyclerView rv,rv2;    //recyclerView are essentially lists that can be modified/updated
+    private RecyclerView rv;   //recyclerView are essentially lists that can be modified/updated
     private BleManager manager;
     private List<BleDevice> deviceList = new ArrayList<>();
     private List<String> deviceAddressList = new ArrayList<>();
     private ArrayList<BleDevice> connectedDevices = new ArrayList<BleDevice>();
     private ScanDeviceAdapter adapter;  //adapter objects modify recylerview lists
-    private com.ficat.sample.DataAdapter adptr2;
+    private DataAdapter adptr2;
     private String UserToken;
-    private BleDevice device;
 
     public List<String[]> outputData = new ArrayList<String[]>();
     public boolean started;
@@ -146,17 +145,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         SparseArray<int[]> res = new SparseArray<>();
         res.put(R.layout.item_rv_scan_devices, new int[]{R.id.tv_name, R.id.tv_address, R.id.tv_connection_state});
         adapter = new ScanDeviceAdapter(this, deviceList, res);
-
-        //clicking each scan result produces a new page - lets modify this to simply connect to the device
-//        adapter.setOnItemClickListener(new CommonRecyclerViewAdapter.OnItemClickListener() {
-//            @Override
-//            public void onItemClick(View itemView, int position) {
-//                manager.stopScan();
-//                BleDevice device = deviceList.get(position);
-//                bhConnect(device);
-//
-//            }
-//        });
         rv.setAdapter(adapter);
     }
 
@@ -239,11 +227,9 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         bhSendInitPayload(d);
                     }
                 }
-
                 break;
-                    default:
-                        break;
-
+            default:
+                break;
         }
     }
 
@@ -270,7 +256,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     deviceAddressList.add(device.address);
                     deviceList.add(device);//IMPORTANT! this is what i modified to ensure only bonded devices are handled further
                     BleManager.getInstance().connect(device, bhConnectCallback);
-                     //add device to array
+                    //add device to array
                     adapter.notifyDataSetChanged(); //updates adapter/recycler which produces GUI updates
 
                 }
@@ -287,7 +273,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
             @Override
             public void onFinish() {
-               manager.stopScan();
+                manager.stopScan();
                 if(connectedDevices.size() !=2){
                     TextView tvFail = findViewById(R.id.tv_fail);
                     Button btnRetry = findViewById(R.id.btn_retry);
@@ -305,7 +291,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                 }
                 else {
                     for (int i = 0; i < deviceList.size(); i++) {
-                            bhSendInitPayload(deviceList.get(i));
+                        bhSendInitPayload(deviceList.get(i));
                     }
                 }
                 Log.e(TAG, "scan finish");
@@ -331,8 +317,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     }
 
-
-
     //this handles a lot of logging and backend
     private BleConnectCallback bhConnectCallback = new BleConnectCallback() {
         @Override
@@ -340,9 +324,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             Logger.e("connect fail:" + info);
             deviceList.remove(device);
             Reconnect();
-//            Toast.makeText(MainActivity.this,
-//                    getResources().getString(failCode == BleConnectCallback.FAIL_CONNECT_TIMEOUT ?
-//                            R.string.tips_connect_timeout : R.string.tips_connect_fail), Toast.LENGTH_LONG).show();
         }
 
         @Override
@@ -375,73 +356,69 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     };
 
     public void bhSendInitPayload(BleDevice device){
-    Logger.e("initted " + device.address);
-    String writeUuid = null;
-    String characteristicUuid = null;
-    String notifyUuid = null;
-    int i = 0;
-    //start sending data command
-    String cmd1 = "C502160117C9";
+        Logger.e("initted " + device.address);
+        String writeUuid = null;
+        String characteristicUuid = null;
+        String notifyUuid = null;
+        int i = 0;
+        //start sending data command
+        String cmd1 = "C502160117C9";
 //        String cmd2 = "C5091743616C69336E74650AC9";
 //        String cmd3 = "C5011010C9";
 //        String cmd4 = "C505732A453F92B3C9";
 
-    //avoid crashes by insuring device is actually connected before acquring uuid
-    while (i < 20) {
-        try {
-            Thread.sleep(200);
-        } catch (InterruptedException e) {
-            e.printStackTrace();
-        }
-        i++;
-        if(BleManager.getInstance().isConnected(device.address)){
-            //Logger.e("its says connected");
-            break;
-        }
-    }
-
-    //get the uuids
-    if (BleManager.getInstance().isConnected(device.address)) {
-        //Logger.e("connection checked");
-        //devices have 'service' (parent) and 'characteristic' (child) uuids. so its map time
-        List<ServiceInfo> groupList = new ArrayList<>();
-        List<List<CharacteristicInfo>> childList = new ArrayList<>();
-        Map<ServiceInfo, List<CharacteristicInfo>> deviceInfo = BleManager.getInstance().getDeviceServices(device.address);
-        //put the uuids in their own lists for iteration
-        for (Map.Entry<ServiceInfo, List<CharacteristicInfo>> e : deviceInfo.entrySet()) {
-            groupList.add(e.getKey());
-            childList.add(e.getValue());
-            Logger.e("entries set");
-        }
-
-        //iterate thru the parent, all the uuid's look to be the same so the one we want starts with '5'
-        for (i = 0; i < groupList.size(); i++) {
-            if (groupList.get(i).uuid.charAt(0) == '5') {
-                writeUuid = groupList.get(i).uuid;
-                Logger.e("uuid acquired");
+        //avoid crashes by insuring device is actually connected before acquring uuid
+        while (i < 20) {
+            try {
+                Thread.sleep(200);
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+            i++;
+            if(BleManager.getInstance().isConnected(device.address)){
+                //Logger.e("its says connected");
                 break;
             }
         }
 
-        //for the characteristic uuid, we want writable (vs readable or notify)
-        for (int j = 0; j < childList.get(i).size(); j++) {
-            if (childList.get(i).get(j).writable) {
-                characteristicUuid = childList.get(i).get(j).uuid;
-            } else if (childList.get(i).get(j).notify) {
-                notifyUuid = childList.get(i).get(j).uuid;
+        //get the uuids
+        if (BleManager.getInstance().isConnected(device.address)) {
+            //Logger.e("connection checked");
+            //devices have 'service' (parent) and 'characteristic' (child) uuids. so its map time
+            List<ServiceInfo> groupList = new ArrayList<>();
+            List<List<CharacteristicInfo>> childList = new ArrayList<>();
+            Map<ServiceInfo, List<CharacteristicInfo>> deviceInfo = BleManager.getInstance().getDeviceServices(device.address);
+            //put the uuids in their own lists for iteration
+            for (Map.Entry<ServiceInfo, List<CharacteristicInfo>> e : deviceInfo.entrySet()) {
+                groupList.add(e.getKey());
+                childList.add(e.getValue());
+                Logger.e("entries set");
             }
+            //new loop - not dependent on '5'. looks for writable+notReadable (we found the write uuid, characteristic, then loop for notify)
+            outerloop:
+            for(i=0; i<groupList.size();i++){
+                for(int j=0; j<childList.get(i).size(); j++){
+                    if( (childList.get(i).get(j).writable) && ((!childList.get(i).get(j).readable))){
+                        writeUuid = groupList.get(i).uuid;
+                        characteristicUuid = childList.get(i).get(j).uuid;
+                        break outerloop;
+                    }
+                }
+            }
+            for(int j=0; j<childList.get(i).size();j++){
+
+                if(childList.get(i).get(j).notify){
+                    notifyUuid = childList.get(i).get(j).uuid;
+                }
+            }
+            Logger.e("uuid placed");
+            //now that we have the uuids, we can send that hardcoded start command
+            BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
+            BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
         }
-        Logger.e("uuid placed");
-
-        //now that we have the uuids, we can send that hardcoded start command
-        BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
-        BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
-    }
     }
 
 
-
-    //callback just for logging
     private BleWriteCallback writeCallback = new BleWriteCallback() {
         @Override
         public void onWriteSuccess(byte[] data, BleDevice device) {
@@ -476,19 +453,19 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             byte[] timeBytes = new byte[1];                 //array to hold parsed time bytes
             byte[] tempBytes = new byte[2];                 //""for temp - part of my problem is that I'm a little confused as to how long the packet is
 
-                for(int i = 3; i < data.length; i++){       //start parse header out
-                    if(i==3){                                //parse time bytes
-                        timeBytes[0] = data[i];         //slap em in the array
-                    }
-                    if( (i>3) && (i<6)) {                 //""for temp - obvious issue i mentioned earlier, array size is 6, only collects 2
-                        tempBytes[(i-4)] = data[i];
-                    }
+            for(int i = 3; i < data.length; i++){       //start parse header out
+                if(i==3){                                //parse time bytes
+                    timeBytes[0] = data[i];         //slap em in the array
                 }
-                ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
-                temp = buff.getShort();
-                temp = temp & 0xffff;
-                dTemp = Math.round(temp / 100);
-                dTemp /=10;
+                if( (i>3) && (i<6)) {                 //""for temp - obvious issue i mentioned earlier, array size is 6, only collects 2
+                    tempBytes[(i-4)] = data[i];
+                }
+            }
+            ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
+            temp = buff.getShort();
+            temp = temp & 0xffff;
+            dTemp = Math.round(temp / 100);
+            dTemp /=10;
             String dataStr = ByteUtils.bytes2HexStr(data);      //full hex bytestream for logcat output (same as in wireshark)
             String timeStr = ByteUtils.bytes2HexStr(timeBytes); //parsed time hex for logcat output
             String tempStr = ByteUtils.bytes2HexStr(tempBytes); //""temp
@@ -517,19 +494,14 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
-
-
-
     private JSONObject jMake(String date, double temp){
         JSONObject obj = new JSONObject();
         try {
             obj.put("date", date);
-        obj.put("temp", temp);
-
+            obj.put("temp", temp);
         } catch (JSONException e) {
             e.printStackTrace();
         }
-
         return obj;
     }
 
@@ -549,7 +521,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                         if(BleManager.getInstance().isConnected(elements.address)){break;}
                         i++;
                     }
-                     bhSendInitPayload(elements);
+                    bhSendInitPayload(elements);
                     Logger.e("reconnecting attmpt to " + elements.address);
                 }
             }
@@ -579,44 +551,41 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
 
     private void writeToFile() {
         try{
-           // Logger.e("writing file");
-        File path = getExternalFilesDir(null);
-        Date date = new Date() ;
-        SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'H'-HH") ;
-        File file = new File(path,dateFormat.format(date) + ".csv") ;
-        BufferedWriter out = new BufferedWriter(new FileWriter(file));
-        out.write("Writing to file");
-        out.close();
+            // Logger.e("writing file");
+            File path = getExternalFilesDir(null);
+            Date date = new Date() ;
+            SimpleDateFormat dateFormat = new SimpleDateFormat("yyyy-MM-dd'H'-HH") ;
+            File file = new File(path,dateFormat.format(date) + ".csv") ;
+            BufferedWriter out = new BufferedWriter(new FileWriter(file));
+            out.write("Writing to file");
+            out.close();
 
-        // if file doesnt exists, then create it
-        if (!file.exists()) {
-            file.createNewFile();
+            // if file doesnt exists, then create it
+            if (!file.exists()) {
+                file.createNewFile();
+            }
+
+            FileWriter fw = new FileWriter(file.getAbsoluteFile());
+            BufferedWriter bw = new BufferedWriter(fw);
+            StringBuilder sb = new StringBuilder();
+
+            for(int i = 0; i < outputData.size(); i++) {
+                sb.append(Arrays.toString(outputData.get(i)));
+                sb.append("\n");
+            }
+            bw.write(sb.toString());
+            bw.flush();
+            bw.close();
+            //Logger.e("written");
+
+        } catch (IOException e) {
+            e.printStackTrace();
+            Logger.e("didnt write");
         }
-
-        FileWriter fw = new FileWriter(file.getAbsoluteFile());
-        BufferedWriter bw = new BufferedWriter(fw);
-        StringBuilder sb = new StringBuilder();
-
-        for(int i = 0; i < outputData.size(); i++) {
-            sb.append(Arrays.toString(outputData.get(i)));
-            sb.append("\n");
-        }
-        bw.write(sb.toString());
-        bw.flush();
-        bw.close();
-        //Logger.e("written");
-
-    } catch (IOException e) {
-        e.printStackTrace();
-        Logger.e("didnt write");
     }
-}
-
 
     private String readFromFile() {
-
         String ret = "";
-
         try {
             File path = getExternalFilesDir(null);
             File file = new File(path, "config.txt");
@@ -643,7 +612,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         } catch (IOException e) {
             Log.e("login activity", "Can not read file: " + e.toString());
         }
-
         return ret;
     }
 
@@ -651,10 +619,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         RecyclerView recyclerView = findViewById(R.id.rvdata);
         recyclerView.setLayoutManager(new LinearLayoutManager(this));
         adptr2 = new DataAdapter(this,  outputData);
-        //adapter2.setClickListener(MainActivity.this);
         recyclerView.setAdapter(adptr2);
     }
-
 
 
 }//end

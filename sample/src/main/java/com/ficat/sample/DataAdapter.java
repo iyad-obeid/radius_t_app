@@ -1,14 +1,11 @@
 package com.ficat.sample;
 
 import android.content.Context;
-import android.support.annotation.NonNull;
 import android.support.v7.widget.RecyclerView;
 import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.TextView;
-
-import com.ficat.easyble.Logger;
 
 import java.util.Arrays;
 import java.util.List;
@@ -20,7 +17,7 @@ public class DataAdapter extends RecyclerView.Adapter<DataAdapter.ViewHolder> {
     private ItemClickListener mClickListener;
 
     // data is passed into the constructor
-    DataAdapter(Context context, List<String[]> data) {
+    public DataAdapter(Context context, List<String[]> data) {
         this.mInflater = LayoutInflater.from(context);
         this.mData = data;
     }
