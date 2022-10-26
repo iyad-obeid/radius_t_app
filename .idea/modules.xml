@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="ProjectModuleManager">
+    <modules>
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/radius_t_app.iml" filepath="$PROJECT_DIR$/.idea/modules/radius_t_app.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.main.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/easyble/radius_t_app.easyble.unitTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.androidTest.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.androidTest.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.main.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.main.iml" />
+      <module fileurl="file://$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.unitTest.iml" filepath="$PROJECT_DIR$/.idea/modules/sample/radius_t_app.sample.unitTest.iml" />
+    </modules>
+  </component>
+</project>

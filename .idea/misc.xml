@@ -9,10 +9,14 @@
         <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_elv_device_info_group.xml" value="0.2109375" />
         <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_rv_data.xml" value="0.5" />
         <entry key="..\:/StudioProjects/EasyBle/sample/src/main/res/layout/item_rv_scan_devices.xml" value="0.5" />
+        <entry key="..\:/Users/iyadobeid/AndroidStudioProjects/radius_t_app/sample/src/main/res/layout/activity_main.xml" value="0.14175724637681159" />
+        <entry key="..\:/Users/iyadobeid/AndroidStudioProjects/radius_t_app/sample/src/main/res/layout/item_rv_scan_devices.xml" value="0.10597826086956522" />
+        <entry key="..\:/Users/iyadobeid/AndroidStudioProjects/radius_t_app/sample/src/main/res/mipmap-anydpi-v26/ic_launcher.xml" value="0.159" />
+        <entry key="..\:/Users/iyadobeid/AndroidStudioProjects/radius_t_app/sample/src/main/res/mipmap-anydpi-v26/ic_launcher_round.xml" value="0.159" />
       </map>
     </option>
   </component>
-  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="Android Studio default JDK" project-jdk-type="JavaSDK">
+  <component name="ProjectRootManager" version="2" languageLevel="JDK_11" default="true" project-jdk-name="11" project-jdk-type="JavaSDK">
     <output url="file://$PROJECT_DIR$/build/classes" />
   </component>
   <component name="ProjectType">

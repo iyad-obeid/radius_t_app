@@ -30,6 +30,7 @@ import com.ficat.easypermissions.RequestExecutor;
 import com.ficat.easypermissions.bean.Permission;
 import com.ficat.sample.adapter.ScanDeviceAdapter;
 import com.ficat.sample.utils.ByteUtils;
+import com.ficat.sample.utils.Properties;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -57,7 +58,17 @@ import java.util.Map;
  *
  */
 
+
+// we don't need the specific mac address for each sensor
+// instead the ble code looks for the very specific uuids which only occur for this
+// particular sensor
+
 public class MainActivity extends AppCompatActivity implements View.OnClickListener {
+
+    /* constants */
+    private String UserToken = Properties.OBEID_TOKEN;
+    private final static String radius_start_xmit = "C502160117C9";
+    private final static int MAX_NUMBER_SENSORS = 2;
 
     private final static String TAG = "EasyBle";
     private RecyclerView rv;   //recyclerView are essentially lists that can be modified/updated
@@ -67,7 +78,6 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
     private ArrayList<BleDevice> connectedDevices = new ArrayList<BleDevice>();
     private ScanDeviceAdapter adapter;  //adapter objects modify recylerview lists
     private DataAdapter adptr2;
-    private String UserToken;
 
     public List<String[]> outputData = new ArrayList<String[]>();
     public boolean started;
@@ -84,7 +94,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         deviceAddressList.clear();//Rv is short for recyclerView. now that layout and elemends are intialized, this uses the adapter to produce the gui elements
         deviceList.clear();
         initDataRv();
-        UserToken = readFromFile();
+//        UserToken = readFromFile();
+//        UserToken = OBEID_TOKEN;
     }
 
     //connects GUI elements to their functionalities
@@ -243,8 +254,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             //if the devices is already added, ignore it
             @Override
             public void onLeScan(BleDevice device, int rssi, byte[] scanRecord) {
-                if (connectedDevices.size() == 2){
-                    onFinish();
+                if (connectedDevices.size() == MAX_NUMBER_SENSORS){      // limits us to the first two detected Radius-T sensors
+                    onFinish();                         // - can be changed
                 }
                 for (BleDevice d : deviceList) {
                     if (device.address.equals(d.address)) {
@@ -252,7 +263,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
                     }
                 }
                 //otherwise add it to the array
-                if (device.getDevice().getBondState() == 12) {
+                if (device.getDevice().getBondState() == 12) {      // 12 is magic "bonded" code
                     deviceAddressList.add(device.address);
                     deviceList.add(device);//IMPORTANT! this is what i modified to ensure only bonded devices are handled further
                     BleManager.getInstance().connect(device, bhConnectCallback);
@@ -274,7 +285,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             @Override
             public void onFinish() {
                 manager.stopScan();
-                if(connectedDevices.size() !=2){
+                if(connectedDevices.size() !=MAX_NUMBER_SENSORS){
                     TextView tvFail = findViewById(R.id.tv_fail);
                     Button btnRetry = findViewById(R.id.btn_retry);
                     Button btnContinue = findViewById(R.id.btn_continue);
@@ -348,6 +359,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             if (intendedDisconnect == false){
                 TextView tvConnectionState = ((TextView) rv.findViewHolderForAdapterPosition(deviceAddressList.indexOf(device.address)).itemView.findViewById(R.id.tv_connection_state));
                 tvConnectionState.setText("disconnected");
+                tvConnectionState.setText("disconnected");
                 tvConnectionState.setTextColor(getResources().getColor(R.color.bright_red));
                 Reconnect();
             }
@@ -362,12 +374,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String notifyUuid = null;
         int i = 0;
         //start sending data command
-        String cmd1 = "C502160117C9";
-//        String cmd2 = "C5091743616C69336E74650AC9";
-//        String cmd3 = "C5011010C9";
-//        String cmd4 = "C505732A453F92B3C9";
 
-        //avoid crashes by insuring device is actually connected before acquring uuid
+        //avoid crashes by insuring device is actually connected before acquiring uuid
         while (i < 20) {
             try {
                 Thread.sleep(200);
@@ -413,7 +421,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             }
             Logger.e("uuid placed");
             //now that we have the uuids, we can send that hardcoded start command
-            BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(cmd1), writeCallback);
+            BleManager.getInstance().write(device, writeUuid, characteristicUuid, ByteUtils.hexStr2Bytes(radius_start_xmit), writeCallback);
             BleManager.getInstance().notify(device, writeUuid, notifyUuid, notifyCallback);
         }
     }
@@ -448,6 +456,7 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         public void onCharacteristicChanged(byte[] data, BleDevice device) throws JSONException, IOException {
             SimpleDateFormat sdf = new SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault());
             String currentDateandTime = sdf.format(new Date()) + "Z";
+
             int temp;                                    //init temp data - this is written directly from bytestream wrapper
             double dTemp;
             byte[] timeBytes = new byte[1];                 //array to hold parsed time bytes
@@ -464,18 +473,21 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
             ByteBuffer buff = ByteBuffer.wrap(tempBytes) ;  //bytestream wrapper for temp. take the array, wrap it to convert it to primitive types
             temp = buff.getShort();
             temp = temp & 0xffff;
-            dTemp = Math.round(temp / 100);
-            dTemp /=10;
+//            dTemp = Math.round(temp / 100); // drop off last two decimal places 39046 -> 390
+//            dTemp /=10;                     // place the decimal 390 -> 39.0
+
+            dTemp = (double)temp / 1000; // 39046 -> 39.046
+
             String dataStr = ByteUtils.bytes2HexStr(data);      //full hex bytestream for logcat output (same as in wireshark)
             String timeStr = ByteUtils.bytes2HexStr(timeBytes); //parsed time hex for logcat output
             String tempStr = ByteUtils.bytes2HexStr(tempBytes); //""temp
 
             String tempCelsStr = String.valueOf(dTemp);         //convert to string for logcat
-            Logger.e("onCharacteristicChanged:" + dataStr + " from: "+ device.address + "  time:" + timeStr + " or: " + currentDateandTime + "  temp:" + tempStr + " C: " + tempCelsStr );
+            Logger.e("onCharacteristicChanged: " + dataStr + " from: "+ device.address + "  time:" + timeStr + " or: " + currentDateandTime + "  temp:" + tempStr + " C: " + tempCelsStr );
 
             outputData.add( new String[] {device.address, currentDateandTime, tempCelsStr});
             adptr2.notifyDataSetChanged();
-            JSONObject jData = jMake(currentDateandTime,dTemp);
+            JSONObject jData = jMake(currentDateandTime,dTemp,device.address);
             new NetworkOperation().execute(jData.toString(), UserToken);
             Reconnect();
 
@@ -494,11 +506,12 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         }
     };
 
-    private JSONObject jMake(String date, double temp){
+    private JSONObject jMake(String date, double temp, String id){
         JSONObject obj = new JSONObject();
         try {
             obj.put("date", date);
             obj.put("temp", temp);
+            obj.put("sensor_id", id);
         } catch (JSONException e) {
             e.printStackTrace();
         }
@@ -588,7 +601,8 @@ public class MainActivity extends AppCompatActivity implements View.OnClickListe
         String ret = "";
         try {
             File path = getExternalFilesDir(null);
-            File file = new File(path, "config.txt");
+            File file = new File(path,
+                    "config.txt");
             FileInputStream inputStream = new FileInputStream(file);
 
             if ( inputStream != null ) {

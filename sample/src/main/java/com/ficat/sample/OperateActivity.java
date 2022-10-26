@@ -1,5 +1,8 @@
 package com.ficat.sample;
 
+// definitely deprecated
+// doesn't do anything -> eliminate?
+
 import android.app.ProgressDialog;
 import android.os.Bundle;
 import android.support.annotation.Nullable;

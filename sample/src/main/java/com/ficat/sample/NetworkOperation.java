@@ -22,6 +22,7 @@ import java.net.ProtocolException;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.util.Arrays;
+import com.ficat.sample.utils.Properties;
 
 public class NetworkOperation extends AsyncTask<String, Void, String> {
 
@@ -30,9 +31,7 @@ public class NetworkOperation extends AsyncTask<String, Void, String> {
     @SuppressLint("NewApi")
     @Override
     protected String doInBackground(String... params) {
-        String https_url = "https://register.bpchildresearch.org/wstg/tempsensor/temp";
-        //HFKjzEZjHnea
-        //String token = "NcdaTXkbTDTh";
+        String https_url = Properties.SERVER_URL;
         String token = params[1];
         String data = "["+params[0]+"]";
         Logger.e(data);
